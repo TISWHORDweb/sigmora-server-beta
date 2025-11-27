@@ -4,7 +4,10 @@ import {
   registerCreator,
   registerSubscriber,
   login,
-  getMe
+  getMe,
+  logout,
+  logoutAll,
+  refreshToken
 } from '../controllers/auth.controller.js';
 import { protect } from '../middleware/auth.middleware.js';
 
@@ -31,6 +34,9 @@ router.post('/register/creator', creatorValidation, registerCreator);
 router.post('/register/subscriber', subscriberValidation, registerSubscriber);
 router.post('/login', registerValidation, login);
 router.get('/me', protect, getMe);
+router.post('/logout', protect, logout);
+router.post('/logout-all', protect, logoutAll);
+router.post('/refresh', protect, refreshToken);
 
 export default router;
 

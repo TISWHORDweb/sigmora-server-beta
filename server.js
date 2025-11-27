@@ -1,6 +1,8 @@
+// IMPORTANT: Load environment variables FIRST before any other imports
+import './config/env.js';
+
 import express from 'express';
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
 import cors from 'cors';
 import cron from 'node-cron';
 
@@ -16,15 +18,15 @@ import academyRoutes from './routes/academy.routes.js';
 // Import subscription expiry job
 import { checkSubscriptionExpiry } from './jobs/subscriptionExpiry.job.js';
 
-// Load environment variables
-dotenv.config();
-
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Trust proxy for accurate IP addresses
+app.set('trust proxy', 1);
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -56,7 +58,7 @@ app.use((req, res) => {
 
 // Connect to MongoDB
 mongoose
-  .connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/sigmora')
+  .connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('Connected to MongoDB');
     

@@ -1,4 +1,5 @@
 import User from '../models/User.model.js';
+import Session from '../models/Session.model.js';
 import { generateToken } from '../utils/generateToken.js';
 import { validationResult } from 'express-validator';
 
@@ -30,6 +31,21 @@ export const registerCreator = async (req, res) => {
     });
 
     if (user) {
+      // Generate token
+      const token = generateToken(user._id);
+      
+      // Create session (expires in 5 hours)
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 5);
+      
+      await Session.create({
+        user: user._id,
+        token,
+        expiresAt,
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('user-agent')
+      });
+
       res.status(201).json({
         _id: user._id,
         name: user.name,
@@ -37,7 +53,8 @@ export const registerCreator = async (req, res) => {
         role: user.role,
         creatorName: user.creatorName,
         academyCode: user.academyCode,
-        token: generateToken(user._id)
+        token,
+        expiresAt
       });
     } else {
       res.status(400).json({ message: 'Invalid user data' });
@@ -81,6 +98,21 @@ export const registerSubscriber = async (req, res) => {
     });
 
     if (user) {
+      // Generate token
+      const token = generateToken(user._id);
+      
+      // Create session (expires in 5 hours)
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 5);
+      
+      await Session.create({
+        user: user._id,
+        token,
+        expiresAt,
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('user-agent')
+      });
+
       res.status(201).json({
         _id: user._id,
         name: user.name,
@@ -88,7 +120,8 @@ export const registerSubscriber = async (req, res) => {
         role: user.role,
         subscribedTo: creator._id,
         creatorName: creator.creatorName,
-        token: generateToken(user._id)
+        token,
+        expiresAt
       });
     } else {
       res.status(400).json({ message: 'Invalid user data' });
@@ -133,6 +166,21 @@ export const login = async (req, res) => {
       };
     }
 
+    // Generate token
+    const token = generateToken(user._id);
+    
+    // Create session (expires in 5 hours)
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 5);
+    
+    await Session.create({
+      user: user._id,
+      token,
+      expiresAt,
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('user-agent')
+    });
+
     res.json({
       _id: user._id,
       name: user.name,
@@ -142,7 +190,8 @@ export const login = async (req, res) => {
       academyCode: user.academyCode,
       subscribedTo: user.subscribedTo,
       creatorInfo,
-      token: generateToken(user._id)
+      token,
+      expiresAt
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -169,7 +218,94 @@ export const getMe = async (req, res) => {
 
     res.json({
       ...user.toObject(),
-      creatorInfo
+      creatorInfo,
+      sessionExpiresAt: req.session?.expiresAt
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Logout user (invalidate session)
+// @route   POST /api/auth/logout
+// @access  Private
+export const logout = async (req, res) => {
+  try {
+    // Get token from header
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (token) {
+      // Deactivate session
+      await Session.updateOne(
+        { token, user: req.user._id },
+        { isActive: false }
+      );
+    }
+
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Logout from all devices
+// @route   POST /api/auth/logout-all
+// @access  Private
+export const logoutAll = async (req, res) => {
+  try {
+    // Deactivate all sessions for user
+    await Session.updateMany(
+      { user: req.user._id },
+      { isActive: false }
+    );
+
+    res.json({ message: 'Logged out from all devices successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Refresh token
+// @route   POST /api/auth/refresh
+// @access  Private
+export const refreshToken = async (req, res) => {
+  try {
+    // Get current token
+    const oldToken = req.headers.authorization?.split(' ')[1];
+    
+    if (!oldToken) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    // Find and deactivate old session
+    const oldSession = await Session.findOne({ 
+      token: oldToken, 
+      user: req.user._id 
+    });
+
+    if (oldSession) {
+      oldSession.isActive = false;
+      await oldSession.save();
+    }
+
+    // Generate new token
+    const newToken = generateToken(req.user._id);
+    
+    // Create new session (expires in 5 hours)
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 5);
+    
+    await Session.create({
+      user: req.user._id,
+      token: newToken,
+      expiresAt,
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('user-agent')
+    });
+
+    res.json({
+      token: newToken,
+      expiresAt
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

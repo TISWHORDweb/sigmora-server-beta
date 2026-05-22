@@ -1,4 +1,5 @@
 import Package from '../models/Package.model.js';
+import { ensureCreatorFreePackage } from '../utils/ensureCreatorFreePackage.js';
 import { validationResult } from 'express-validator';
 
 // @desc    Create package
@@ -32,6 +33,7 @@ export const createPackage = async (req, res) => {
 // @access  Private/Creator
 export const getCreatorPackages = async (req, res) => {
   try {
+    await ensureCreatorFreePackage(req.user._id);
     const packages = await Package.find({ creator: req.user._id }).sort({ createdAt: -1 });
     res.json(packages);
   } catch (error) {

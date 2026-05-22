@@ -32,7 +32,7 @@ export const initializePayment = async (req, res) => {
       tx_ref: `sigmora_${Date.now()}_${req.user._id}`,
       amount: packageData.price,
       currency: 'NGN', // Change to your preferred currency
-      redirect_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/callback`,
+      redirect_url: `${process.env.FRONTEND_URL || 'http://localhost:3005'}/payment/callback`,
       payment_options: 'card,account,ussd',
       customer: {
         email: req.user.email,
@@ -196,11 +196,11 @@ export const paymentCallback = async (req, res) => {
     }
 
     // Redirect to frontend
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3005';
     res.redirect(`${frontendUrl}/payment/callback?status=${status}&tx_ref=${tx_ref}`);
   } catch (error) {
     console.error('Payment callback error:', error);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3005';
     res.redirect(`${frontendUrl}/payment/callback?status=failed`);
   }
 };

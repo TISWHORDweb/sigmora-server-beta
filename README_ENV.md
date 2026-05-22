@@ -10,7 +10,7 @@ The `.env` file has been created with the following configuration:
 - ✅ `MONGODB_URI` - Set to local MongoDB (default)
 - ✅ `PORT` - Set to 5000
 - ✅ `NODE_ENV` - Set to development
-- ✅ `FRONTEND_URL` - Set to http://localhost:3000
+- ✅ `FRONTEND_URL` - Set to http://localhost:3005
 
 ### ⚠️ Variables You Need to Update:
 
@@ -98,7 +98,7 @@ JWT_EXPIRE=5h
 FLUTTERWAVE_SECRET_KEY=FLWSECK_TEST-your-test-secret-key-here
 
 # Frontend Configuration
-FRONTEND_URL=http://localhost:3000
+FRONTEND_URL=http://localhost:3005
 ```
 
 ---

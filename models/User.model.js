@@ -38,6 +38,14 @@ const userSchema = new mongoose.Schema({
     ref: 'User',
     default: null // Only for subscribers - references the creator
   },
+  resetPasswordToken: {
+    type: String,
+    select: false
+  },
+  resetPasswordExpires: {
+    type: Date,
+    select: false
+  },
   createdAt: {
     type: Date,
     default: Date.now

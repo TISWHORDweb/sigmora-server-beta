@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import connectDB from './lib/mongodb.js';
+import { corsOptions, isAllowedOrigin } from './lib/cors.js';
 
 import authRoutes from './routes/auth.routes.js';
 import packageRoutes from './routes/package.routes.js';
@@ -13,13 +14,15 @@ import notificationRoutes from './routes/notification.routes.js';
 
 const app = express();
 
-app.use(cors());
+app.set('trust proxy', 1);
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.set('trust proxy', 1);
 
-// Ensure MongoDB is connected (cached on serverless)
+// Ensure MongoDB is connected (skip OPTIONS preflight — must not block CORS)
 app.use(async (req, res, next) => {
+  if (req.method === 'OPTIONS') return next();
   try {
     await connectDB();
     next();
@@ -42,6 +45,11 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use((err, req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && isAllowedOrigin(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
   console.error(err.stack);
   res.status(err.status || 500).json({
     message: err.message || 'Internal Server Error',

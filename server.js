@@ -1,85 +1,27 @@
-// IMPORTANT: Load environment variables FIRST before any other imports
+// Local development entry — Vercel uses api/[[...path]].js instead
 import './config/env.js';
 
-import express from 'express';
-import mongoose from 'mongoose';
-import cors from 'cors';
+import connectDB from './lib/mongodb.js';
+import app from './app.js';
 import cron from 'node-cron';
-
-// Import routes
-import authRoutes from './routes/auth.routes.js';
-import packageRoutes from './routes/package.routes.js';
-import assetRoutes from './routes/asset.routes.js';
-import tradeRoutes from './routes/trade.routes.js';
-import subscriptionRoutes from './routes/subscription.routes.js';
-import paymentRoutes from './routes/payment.routes.js';
-import academyRoutes from './routes/academy.routes.js';
-import notificationRoutes from './routes/notification.routes.js';
-
-// Import subscription expiry job
 import { checkSubscriptionExpiry } from './jobs/subscriptionExpiry.job.js';
 
-const app = express();
+const start = async () => {
+  await connectDB();
+  console.log('Connected to MongoDB');
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Trust proxy for accurate IP addresses
-app.set('trust proxy', 1);
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/packages', packageRoutes);
-app.use('/api/assets', assetRoutes);
-app.use('/api/trades', tradeRoutes);
-app.use('/api/subscriptions', subscriptionRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/academy', academyRoutes);
-app.use('/api/notifications', notificationRoutes);
-
-// Health check route
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Sigmora API is running' });
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(err.status || 500).json({
-    message: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found' });
-});
-
-// Connect to MongoDB
-mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log('Connected to MongoDB');
-    
-    // Start server
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  })
-  .catch((error) => {
-    console.error('MongoDB connection error:', error);
-    process.exit(1);
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
   });
 
-// Schedule subscription expiry check daily at midnight
-cron.schedule('0 0 * * *', () => {
-  console.log('Running subscription expiry check...');
-  checkSubscriptionExpiry();
+  cron.schedule('0 0 * * *', () => {
+    console.log('Running subscription expiry check...');
+    checkSubscriptionExpiry();
+  });
+};
+
+start().catch((error) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
 });
-
-export default app;
-

@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "crons": [
+    {
+      "path": "/api/cron/subscription-expiry",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}

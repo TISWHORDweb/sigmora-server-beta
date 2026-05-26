@@ -15,15 +15,13 @@ const requiredEnvVars = ['JWT_SECRET', 'MONGODB_URI'];
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
 
 if (missingEnvVars.length > 0) {
-  console.error('❌ Missing required environment variables:');
-  missingEnvVars.forEach(varName => {
-    console.error(`   - ${varName}`);
-  });
-  console.error('\n📝 Please create a .env file in the sigmora-server-beta directory with the following:');
-  console.error('   JWT_SECRET=your-secret-key-here');
-  console.error('   MONGODB_URI=mongodb://localhost:27017/sigmora');
-  console.error('\n💡 Generate a secure JWT_SECRET: openssl rand -base64 32\n');
-  process.exit(1);
+  const msg = `Missing required environment variables: ${missingEnvVars.join(', ')}`;
+  console.error(`❌ ${msg}`);
+  if (!process.env.VERCEL) {
+    console.error('\n📝 Create a .env file or set vars in the Vercel project settings.');
+    process.exit(1);
+  }
+  throw new Error(msg);
 }
 
 // Log that environment is loaded (without showing secrets)

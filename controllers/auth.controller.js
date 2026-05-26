@@ -3,6 +3,7 @@ import User from '../models/User.model.js';
 import Session from '../models/Session.model.js';
 import { generateToken } from '../utils/generateToken.js';
 import { ensureCreatorFreePackage } from '../utils/ensureCreatorFreePackage.js';
+import { notifyCreatorAsync } from '../utils/notifications.js';
 import { validationResult } from 'express-validator';
 
 const hashResetToken = (token) =>
@@ -84,7 +85,10 @@ export const registerSubscriber = async (req, res) => {
     const { name, email, password, academyCode } = req.body;
 
     // Find creator by academy code
-    const creator = await User.findOne({ academyCode, role: 'creator' });
+    const creator = await User.findOne({
+      academyCode: String(academyCode).toUpperCase(),
+      role: 'creator',
+    });
     if (!creator) {
       return res.status(404).json({ message: 'Invalid academy code' });
     }
@@ -120,6 +124,15 @@ export const registerSubscriber = async (req, res) => {
         userAgent: req.get('user-agent')
       });
 
+      notifyCreatorAsync({
+        recipient: creator._id,
+        type: 'subscriber_joined',
+        title: 'New academy member',
+        message: `${user.name} joined your academy using code ${creator.academyCode}`,
+        meta: { subscriberId: user._id, subscriberName: user.name },
+        link: '/creator/subscribers',
+      });
+
       res.status(201).json({
         _id: user._id,
         name: user.name,
@@ -127,8 +140,13 @@ export const registerSubscriber = async (req, res) => {
         role: user.role,
         subscribedTo: creator._id,
         creatorName: creator.creatorName,
+        creatorInfo: {
+          _id: creator._id,
+          creatorName: creator.creatorName,
+          academyCode: creator.academyCode,
+        },
         token,
-        expiresAt
+        expiresAt,
       });
     } else {
       res.status(400).json({ message: 'Invalid user data' });
@@ -240,11 +258,13 @@ export const login = async (req, res) => {
     let creatorInfo = null;
     if (user.role === 'subscriber' && user.subscribedTo) {
       const creator = await User.findById(user.subscribedTo);
-      creatorInfo = {
-        _id: creator._id,
-        creatorName: creator.creatorName,
-        academyCode: creator.academyCode
-      };
+      if (creator) {
+        creatorInfo = {
+          _id: creator._id,
+          creatorName: creator.creatorName,
+          academyCode: creator.academyCode,
+        };
+      }
     }
 
     // Generate token
@@ -362,17 +382,19 @@ export const getMe = async (req, res) => {
     let creatorInfo = null;
     if (user.role === 'subscriber' && user.subscribedTo) {
       const creator = await User.findById(user.subscribedTo);
-      creatorInfo = {
-        _id: creator._id,
-        creatorName: creator.creatorName,
-        academyCode: creator.academyCode
-      };
+      if (creator) {
+        creatorInfo = {
+          _id: creator._id,
+          creatorName: creator.creatorName,
+          academyCode: creator.academyCode,
+        };
+      }
     }
 
     res.json({
       ...user.toObject(),
       creatorInfo,
-      sessionExpiresAt: req.session?.expiresAt
+      sessionExpiresAt: req.session?.expiresAt,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

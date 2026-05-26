@@ -14,6 +14,7 @@ import tradeRoutes from './routes/trade.routes.js';
 import subscriptionRoutes from './routes/subscription.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
 import academyRoutes from './routes/academy.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
 
 // Import subscription expiry job
 import { checkSubscriptionExpiry } from './jobs/subscriptionExpiry.job.js';
@@ -36,6 +37,7 @@ app.use('/api/trades', tradeRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/academy', academyRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

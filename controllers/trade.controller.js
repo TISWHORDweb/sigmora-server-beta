@@ -1,6 +1,17 @@
 import Trade from '../models/Trade.model.js';
 import Subscription from '../models/Subscription.model.js';
 import { validationResult } from 'express-validator';
+import { notifyTradeSubscribersAsync } from '../utils/notifications.js';
+
+async function getSubscribedPackageIds(subscriberId, { activeOnly = false } = {}) {
+  const query = { subscriber: subscriberId };
+  if (activeOnly) {
+    query.status = 'active';
+    query.expiryDate = { $gt: new Date() };
+  }
+  const subscriptions = await Subscription.find(query);
+  return [...new Set(subscriptions.map((s) => s.package.toString()))];
+}
 
 // @desc    Create trade
 // @route   POST /api/trades
@@ -28,6 +39,8 @@ export const createTrade = async (req, res) => {
     const populatedTrade = await Trade.findById(trade._id)
       .populate('asset', 'symbol pipValue spread margin')
       .populate('packages', 'name price');
+
+    notifyTradeSubscribersAsync(trade._id, 'created');
 
     res.status(201).json(populatedTrade);
   } catch (error) {
@@ -78,23 +91,19 @@ export const getCompletedTrades = async (req, res) => {
 // @access  Private/Subscriber
 export const getSubscriberActiveTrades = async (req, res) => {
   try {
-    // Get subscriber's active subscriptions
-    const subscriptions = await Subscription.find({
-      subscriber: req.user._id,
-      status: 'active'
-    });
-
-    if (subscriptions.length === 0) {
+    if (!req.user.subscribedTo) {
       return res.json([]);
     }
 
-    // Get package IDs from subscriptions
-    const packageIds = subscriptions.map(sub => sub.package);
+    const packageIds = await getSubscribedPackageIds(req.user._id, { activeOnly: true });
+    if (packageIds.length === 0) {
+      return res.json([]);
+    }
 
-    // Get active trades that include any of the subscribed packages
     const trades = await Trade.find({
       status: 'active',
-      packages: { $in: packageIds }
+      creator: req.user.subscribedTo,
+      packages: { $in: packageIds },
     })
       .populate('asset', 'symbol pipValue spread margin')
       .populate('packages', 'name price')
@@ -112,22 +121,19 @@ export const getSubscriberActiveTrades = async (req, res) => {
 // @access  Private/Subscriber
 export const getSubscriberCompletedTrades = async (req, res) => {
   try {
-    // Get subscriber's subscriptions (active or expired, but they can see historical trades)
-    const subscriptions = await Subscription.find({
-      subscriber: req.user._id
-    });
-
-    if (subscriptions.length === 0) {
+    if (!req.user.subscribedTo) {
       return res.json([]);
     }
 
-    // Get package IDs from subscriptions
-    const packageIds = subscriptions.map(sub => sub.package);
+    const packageIds = await getSubscribedPackageIds(req.user._id, { activeOnly: false });
+    if (packageIds.length === 0) {
+      return res.json([]);
+    }
 
-    // Get completed trades that include any of the subscribed packages
     const trades = await Trade.find({
       status: 'closed',
-      packages: { $in: packageIds }
+      creator: req.user.subscribedTo,
+      packages: { $in: packageIds },
     })
       .populate('asset', 'symbol pipValue spread margin')
       .populate('packages', 'name price')
@@ -180,6 +186,8 @@ export const closeTrade = async (req, res) => {
     const populatedTrade = await Trade.findById(updatedTrade._id)
       .populate('asset', 'symbol pipValue spread margin')
       .populate('packages', 'name price');
+
+    notifyTradeSubscribersAsync(updatedTrade._id, 'closed');
 
     res.json(populatedTrade);
   } catch (error) {

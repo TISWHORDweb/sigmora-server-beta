@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "rewrites": [
+    {
+      "source": "/api/((?!cron/).*)",
+      "destination": "/api"
+    }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",

@@ -14,6 +14,21 @@ import notificationRoutes from './routes/notification.routes.js';
 
 const app = express();
 
+const API_ROOTS = new Set([
+  'auth', 'packages', 'assets', 'trades', 'subscriptions',
+  'payments', 'academy', 'notifications', 'health',
+]);
+
+// Vercel rewrite to /api may strip the prefix from req.url
+app.use((req, res, next) => {
+  const [pathOnly, query = ''] = (req.url || '').split('?');
+  const segment = pathOnly.split('/').filter(Boolean)[0];
+  if (segment && API_ROOTS.has(segment) && !pathOnly.startsWith('/api')) {
+    req.url = `/api${pathOnly.startsWith('/') ? pathOnly : `/${pathOnly}`}${query ? `?${query}` : ''}`;
+  }
+  next();
+});
+
 app.set('trust proxy', 1);
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
